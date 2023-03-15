@@ -38,21 +38,20 @@ func (s *Service) Start() {
 	eventChannel := make(chan internal.Event)
 	go s.consumer.Consume(eventChannel)
 
-	for {
-		select {
-		case e := <-eventChannel:
-			// For example, show received message in a console.
-			s.log.Info(context.TODO(), "event consumed")
+	forever := make(chan bool)
+	for e := range eventChannel {
+		// For example, show received message in a console.
+		s.log.Info(context.TODO(), "event consumed")
 
-			for _, c := range s.Pool.Channels[e.ChannelID] {
-				err := c.Conn.WriteJSON(e)
-				if err != nil {
-					s.log.Error(
-						ctx,
-						fmt.Sprintf("failed to send event: %s", err.Error()),
-					)
-				}
+		for _, c := range s.Pool.Channels[e.ChannelID] {
+			err := c.Conn.WriteJSON(e)
+			if err != nil {
+				s.log.Error(
+					ctx,
+					fmt.Sprintf("failed to send event: %s", err.Error()),
+				)
 			}
 		}
 	}
+	<-forever
 }
