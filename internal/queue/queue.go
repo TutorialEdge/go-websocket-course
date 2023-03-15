@@ -1,9 +1,11 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/TutorialEdge/ctxlog"
+	"github.com/TutorialEdge/go-websocket-course/internal"
 	"github.com/streadway/amqp"
 )
 
@@ -58,8 +60,8 @@ func (s *Service) Connect() error {
 	return nil
 }
 
-func (s *Service) Consume() (<-chan amqp.Delivery, error) {
-	msgs, err := s.Channel.Consume(
+func (s *Service) Consume(eventChannel chan internal.Event) {
+	msgs, _ := s.Channel.Consume(
 		s.QueueName,
 		"Event-Consumer",
 		true,
@@ -68,11 +70,15 @@ func (s *Service) Consume() (<-chan amqp.Delivery, error) {
 		false,
 		nil,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return msgs, nil
+	forever := make(chan bool)
+	go func() {
+		for msg := range msgs {
+			var event internal.Event
+			_ = json.Unmarshal(msg.Body, &event)
+			eventChannel <- event
+		}
+	}()
+	<-forever
 }
 
 // Publish - publishes a message to the queue

@@ -2,17 +2,14 @@ package stream
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/TutorialEdge/ctxlog"
 	"github.com/TutorialEdge/go-websocket-course/internal"
-	"github.com/gorilla/websocket"
-	"github.com/streadway/amqp"
 )
 
 type EventConsumer interface {
-	Consume() (<-chan amqp.Delivery, error)
+	Consume(chan internal.Event)
 }
 
 type Service struct {
@@ -38,35 +35,24 @@ func New(
 
 func (s *Service) Start() {
 	ctx := context.Background()
-	messages, err := s.consumer.Consume()
-	if err != nil {
-		s.log.Error(ctx, err.Error())
-		return
-	}
+	eventChannel := make(chan internal.Event)
+	go s.consumer.Consume(eventChannel)
 
-	forever := make(chan bool)
-	go func() {
-		for e := range messages {
+	for {
+		select {
+		case e := <-eventChannel:
 			// For example, show received message in a console.
 			s.log.Info(context.TODO(), "event consumed")
-			var event internal.Event
-			err := json.Unmarshal(e.Body, &event)
-			if err != nil {
-				return
-			}
 
-			for _, c := range s.Pool.Channels[event.ChannelID] {
-				err := c.Conn.WriteMessage(websocket.TextMessage, e.Body)
+			for _, c := range s.Pool.Channels[e.ChannelID] {
+				err := c.Conn.WriteJSON(e)
 				if err != nil {
 					s.log.Error(
 						ctx,
 						fmt.Sprintf("failed to send event: %s", err.Error()),
 					)
-					// s.Pool.Channels[event.ChannelID][c.ID]
 				}
 			}
 		}
-	}()
-	<-forever
-
+	}
 }
