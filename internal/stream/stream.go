@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/TutorialEdge/ctxlog"
 	"github.com/TutorialEdge/go-websocket-course/internal"
 	"github.com/gorilla/websocket"
+	"github.com/streadway/amqp"
 )
 
 type EventConsumer interface {
-	Consume() internal.Event
+	Consume() (<-chan amqp.Delivery, error)
 }
 
 type Service struct {
@@ -21,7 +21,10 @@ type Service struct {
 	log      *ctxlog.CtxLogger
 }
 
-func New(consumer EventConsumer, log *ctxlog.CtxLogger) *Service {
+func New(
+	consumer EventConsumer,
+	log *ctxlog.CtxLogger,
+) *Service {
 	return &Service{
 		consumer: consumer,
 		Pool: &Pool{
@@ -34,26 +37,38 @@ func New(consumer EventConsumer, log *ctxlog.CtxLogger) *Service {
 }
 
 func (s *Service) Start() {
-	for {
-		time.Sleep(1 * time.Second)
-		ctx := context.Background()
-		event := s.consumer.Consume()
-		event.ChannelID = "test-channel"
+	s.log.Info(context.Background(), "start")
+	ctx := context.Background()
+	messages, err := s.consumer.Consume()
+	if err != nil {
+		s.log.Error(ctx, "failed to consume messages")
+		s.log.Error(ctx, err.Error())
+		return
+	}
 
-		data, err := json.Marshal(event)
-		if err != nil {
-			s.log.Error(ctx, "failed to marshal event")
-		}
-
-		for _, c := range s.Pool.Channels[event.ChannelID] {
-			err := c.Conn.WriteMessage(websocket.TextMessage, data)
+	forever := make(chan bool)
+	go func() {
+		for e := range messages {
+			// For example, show received message in a console.
+			s.log.Info(context.TODO(), "event consumed")
+			var event internal.Event
+			err := json.Unmarshal(e.Body, &event)
 			if err != nil {
-				s.log.Error(
-					ctx,
-					fmt.Sprintf("failed to send event: %s", err.Error()),
-				)
-				// s.Pool.Channels[event.ChannelID][c.ID]
+				return
+			}
+
+			for _, c := range s.Pool.Channels[event.ChannelID] {
+				err := c.Conn.WriteMessage(websocket.TextMessage, e.Body)
+				if err != nil {
+					s.log.Error(
+						ctx,
+						fmt.Sprintf("failed to send event: %s", err.Error()),
+					)
+					// s.Pool.Channels[event.ChannelID][c.ID]
+				}
 			}
 		}
-	}
+	}()
+	<-forever
+
 }

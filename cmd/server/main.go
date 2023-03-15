@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/TutorialEdge/ctxlog"
 	"github.com/TutorialEdge/go-websocket-course/internal/api"
@@ -16,7 +17,19 @@ func Run() error {
 	)
 	log.Info(ctx, "starting stream service")
 
-	eventQueue := queue.New()
+	eventQueue, err := queue.New(log)
+	if err != nil {
+		log.Error(ctx, err.Error())
+		return err
+	}
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			eventQueue.Publish("{\"channel_id\": \"test-channel\"}")
+		}
+	}()
+
 	streamService := stream.New(eventQueue, log)
 	go streamService.Start()
 
