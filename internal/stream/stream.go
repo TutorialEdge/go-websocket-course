@@ -37,7 +37,6 @@ func New(
 }
 
 func (s *Service) Start() {
-	s.log.Info(context.Background(), "start")
 	ctx := context.Background()
 	messages, err := s.consumer.Consume()
 	if err != nil {
