@@ -41,7 +41,6 @@ func (s *Service) Start() {
 	ctx := context.Background()
 	messages, err := s.consumer.Consume()
 	if err != nil {
-		s.log.Error(ctx, "failed to consume messages")
 		s.log.Error(ctx, err.Error())
 		return
 	}

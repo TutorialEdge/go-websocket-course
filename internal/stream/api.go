@@ -19,6 +19,14 @@ type Client struct {
 	Pool *Pool
 }
 
+// A pool represents all websocket clients on our service
+type Pool struct {
+	Register   chan *Client
+	Unregister chan *Client
+	Channels   map[string][]*Client
+	Clients    []*Client
+}
+
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,

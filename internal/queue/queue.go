@@ -62,7 +62,7 @@ func (s *Service) Consume() (<-chan amqp.Delivery, error) {
 	msgs, err := s.Channel.Consume(
 		s.QueueName,
 		"Event-Consumer",
-		false,
+		true,
 		false,
 		false,
 		false,
