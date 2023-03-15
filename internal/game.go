@@ -24,6 +24,9 @@ type Game struct {
 
 // Event - "81' - Messi Scores a Volley"
 type Event struct {
+	// ChannelID - what channel the event corresponds to
+	ChannelID string
+
 	// What time the event occured
 	Time string
 	// The associated message
