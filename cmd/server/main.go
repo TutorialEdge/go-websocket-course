@@ -31,7 +31,7 @@ func Run() error {
 	}()
 
 	streamService := stream.New(eventQueue, log)
-	go streamService.Start()
+	go streamService.Start(ctx)
 
 	myAPI := api.New(streamService)
 	myAPI.RegisterRoutes(streamService)

@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -35,10 +34,12 @@ var wsupgrader = websocket.Upgrader{
 	},
 }
 
+// SetupRoutes - maps our websocket endpoint
 func (s *Service) SetupRoutes(c *gin.Engine) {
 	c.GET("/api/v1/stream", s.stream)
 }
 
+// stream -
 func (s *Service) stream(c *gin.Context) {
 	ctx := c.Request.Context()
 	channelID := c.Query("channel")
@@ -48,16 +49,16 @@ func (s *Service) stream(c *gin.Context) {
 	s.log.Info(ctx, "new websocket connection")
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		s.log.Info(
-			ctx,
-			fmt.Sprintf("Failed to set websocket upgrade: %+v", err.Error()),
-		)
+		s.log.Info(ctx, "Failed to set websocket upgrade")
 		return
 	}
 	client := &Client{
 		Conn: conn,
 	}
 	defer conn.Close()
+
+	// TODO - create some helper functions to allow for easier client -> channel
+	// management
 	s.log.Info(ctx, "registering client for channel")
 	if _, ok := s.Pool.Channels[channelID]; ok {
 		s.Pool.Channels[channelID] = append(s.Pool.Clients, client)
@@ -67,6 +68,8 @@ func (s *Service) stream(c *gin.Context) {
 	s.keepAlive(ctx, client)
 }
 
+// keepalive - a simple keepalive that sends a websocket
+// event every 15 seconds.
 func (s *Service) keepAlive(ctx context.Context, client *Client) {
 	defer func() {
 		s.log.Info(ctx, "connection closed")
