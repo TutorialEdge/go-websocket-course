@@ -20,26 +20,27 @@ type Handler struct {
 func New(stream Service) *Handler {
 	handler := &Handler{
 		StreamService: stream,
+		router:        gin.Default(),
 	}
-	handler.setupRoutes()
+
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"*"}
+	handler.router.Use(cors.New(config))
+
+	// basic health check endpoint
+	handler.router.GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "hello world!"})
+	})
+
 	return handler
 }
 
+// A handy-dandy way for us to allow components to register new routes
 func (h *Handler) RegisterRoutes(service Service) {
 	service.SetupRoutes(h.router)
 }
 
-func (h *Handler) setupRoutes() {
-	h.router = gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
-	h.router.Use(cors.New(config))
-	// basic health check endpoint
-	h.router.GET("/api/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "hello world!"})
-	})
-}
-
+// Serve - kicks off our server, no graceful handling of shutdowns yet
 func (h *Handler) Serve() error {
 	if err := h.router.Run(":8080"); err != nil {
 		return err
