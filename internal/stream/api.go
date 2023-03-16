@@ -7,23 +7,16 @@ import (
 
 	"github.com/TutorialEdge/ctxlog"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
 // A client represents a single websocket connection
 // in our system
 type Client struct {
-	ID   string
-	Conn *websocket.Conn
-	Pool *Pool
-}
-
-// A pool represents all websocket clients on our service
-type Pool struct {
-	Register   chan *Client
-	Unregister chan *Client
-	Channels   map[string][]*Client
-	Clients    []*Client
+	ID        string
+	ChannelID string
+	Conn      *websocket.Conn
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -35,52 +28,49 @@ var wsupgrader = websocket.Upgrader{
 }
 
 // SetupRoutes - maps our websocket endpoint
-func (s *Service) SetupRoutes(c *gin.Engine) {
+func (s *Streamer) SetupRoutes(c *gin.Engine) {
 	c.GET("/api/v1/stream", s.stream)
 }
 
 // stream -
-func (s *Service) stream(c *gin.Context) {
+func (s *Streamer) stream(c *gin.Context) {
 	ctx := c.Request.Context()
 	channelID := c.Query("channel")
 	ctx = ctxlog.WithFields(ctx, ctxlog.Fields{
-		"channel-id": channelID,
+		"channel_id": channelID,
 	})
-	s.log.Info(ctx, "new websocket connection")
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		s.log.Info(ctx, "Failed to set websocket upgrade")
 		return
 	}
 	client := &Client{
-		Conn: conn,
+		ID:        uuid.New().String(),
+		Conn:      conn,
+		ChannelID: channelID,
 	}
 	defer conn.Close()
+	ctx = ctxlog.WithFields(ctx, ctxlog.Fields{
+		"client_id": client.ID,
+	})
 
-	// TODO - create some helper functions to allow for easier client -> channel
-	// management
-	s.log.Info(ctx, "registering client for channel")
-	if _, ok := s.Pool.Channels[channelID]; ok {
-		s.Pool.Channels[channelID] = append(s.Pool.Clients, client)
-	} else {
-		s.Pool.Channels[channelID] = []*Client{client}
-	}
+	s.Register <- client
 	s.keepAlive(ctx, client)
 }
 
 // keepalive - a simple keepalive that sends a websocket
 // event every 15 seconds.
-func (s *Service) keepAlive(ctx context.Context, client *Client) {
+func (s *Streamer) keepAlive(ctx context.Context, client *Client) {
 	defer func() {
 		s.log.Info(ctx, "connection closed")
-		s.Pool.Unregister <- client
+		s.Unregister <- client
 	}()
 	s.log.Info(ctx, "keepalive started")
 
 	for {
 		time.Sleep(15 * time.Second)
 		s.log.Info(ctx, "sending keepalive")
-		err := client.Conn.WriteMessage(websocket.TextMessage, []byte("I'm alive"))
+		err := client.Conn.WriteMessage(websocket.TextMessage, []byte("{\"message\": \"I'm alive\"}"))
 		if err != nil {
 			s.log.Error(ctx, "failed to send message on connection")
 			return

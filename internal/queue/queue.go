@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -99,6 +100,6 @@ func (s *Service) Publish(message string) error {
 		return err
 	}
 
-	fmt.Println("Successfully Published Message to Queue")
+	s.log.Info(context.Background(), "Successfully Published Message to Queue")
 	return nil
 }
