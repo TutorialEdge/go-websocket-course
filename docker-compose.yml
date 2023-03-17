@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: "event-queue"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - fullstack
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq/data
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  api:
+    build: .
+    container_name: "streaming-service"
+    environment:
+      QUEUE_HOST: rabbitmq
+      QUEUE_USER: guest
+      QUEUE_PASS: guest
+      QUEUE_PORT: 5672
+      GIN_MODE: "release"
+    ports:
+      - "8080:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - fullstack
+
+volumes:
+  rabbitmq:
+
+networks:
+  fullstack:
+    driver: bridge

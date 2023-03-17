@@ -16,6 +16,8 @@ type EventConsumer interface {
 // a pool which maps all the connections to channels
 // and a logger
 type Streamer struct {
+	// Consumer - used for consuming events from
+	// a queue and then sending them off to our connected clients
 	consumer EventConsumer
 
 	// Channels used for registering
@@ -30,8 +32,7 @@ type Streamer struct {
 	// Clients - keeps a map of all clients
 	// and their IDs current subscribed to the streamer
 	Clients map[string]*Client
-
-	log *ctxlog.CtxLogger
+	log     *ctxlog.CtxLogger
 }
 
 // New - returns a new streaming service

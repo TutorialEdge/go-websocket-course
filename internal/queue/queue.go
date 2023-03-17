@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/TutorialEdge/ctxlog"
 	"github.com/TutorialEdge/go-websocket-course/internal"
@@ -33,7 +34,14 @@ func New(log *ctxlog.CtxLogger) (*Service, error) {
 // and declares the queue we are going to be using
 func (s *Service) Connect() error {
 	var err error
-	s.Conn, err = amqp.Dial("amqp://guest:guest@localhost:5672/")
+	connString := fmt.Sprintf(
+		"amqp://%s:%s@%s:%s",
+		os.Getenv("QUEUE_USER"),
+		os.Getenv("QUEUE_PASS"),
+		os.Getenv("QUEUE_HOST"),
+		os.Getenv("QUEUE_PORT"),
+	)
+	s.Conn, err = amqp.Dial(connString)
 	if err != nil {
 		return err
 	}
